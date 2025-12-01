@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Rescue Paul — Mini Maze Game</title>
+<title>Save-Min</title>
 <style>
-  :root{
+  : root{
     --tile:32px;
     --bg:#0f1724;
     --wall:#1f2937;
@@ -22,7 +22,7 @@
   canvas{display:block;background:var(--bg);image-rendering:pixelated;border-radius:6px}
   .hud{display:flex;gap:12px;align-items:center;margin-top:10px;justify-content:center}
   button{background:#111827;color:var(--text);border:1px solid #ffffff22;padding:8px 12px;border-radius:8px;cursor:pointer}
-  .center{text-align:center}
+  .center{text-align: center}
   #overlay{
     position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
     background:linear-gradient(90deg, rgba(2,6,23,0.65), rgba(2,6,23,0.85));
@@ -56,7 +56,7 @@
   <div class="panel" id="panel">
     
     <img src="images/min.png" alt="">
-    <h1>Hey! it's Paul (my spirit)</h1>
+    <h1>Hey! It's Paul (my spirit)</h1>
     <p>
       Hey, this is Paul. My spirit is talking, I know it's confusing but let me explain.
       Since you weren't even trying to meet me I tried black magic to convince you to make us meet, but while doing it I disturbed the spiritual realm
@@ -72,7 +72,7 @@
       <div>Avoid enemies (red). If they touch you it's game over.</div>
       <div>The enemies patrol randomly and will chase if you're nearby.</div>
     </div>
-    <div class="muted">Put <code>hero.png</code> and <code>paul.png</code> in the same folder as this HTML file.</div>
+    <!-- <div class="muted">Put <code>hero.png</code> and <code>paul.png</code> in the same folder as this HTML file.</div> -->
   </div>
 </div>
 
@@ -266,7 +266,6 @@ function enemyAvailableDirs(ecx, ecy){
     {dx:-1,dy:0, id:1},
     {dx:0,dy:1, id:2},
     {dx:0,dy:-1, id:3}
-    {dx:3,dy:-1, id:4}
   ];
   for(const d of dirs){
     if(tileAt(ecx + d.dx, ecy + d.dy)===0) out.push(d);
@@ -489,6 +488,3 @@ startIntro();
 </script>
 </body>
 </html>
-
-
-
