@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Rescue Paul — Mini Maze Game</title>
+<style>
+  :root{
+    --tile:32px;
+    --bg:#0f1724;
+    --wall:#1f2937;
+    --floor:#0b1220;
+    --hero:#f59e0b;
+    --enemy:#ef4444;
+    --paul:#60a5fa;
+    --ui:#111827cc;
+    --text:#eef2ff;
+  }
+  html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto;}
+  body{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#071128,#02111b);color:var(--text)}
+  #wrap{width:fit-content;padding:18px;background:var(--ui);border-radius:10px;box-shadow:0 10px 40px rgba(2,6,23,.6)}
+  canvas{display:block;background:var(--bg);image-rendering:pixelated;border-radius:6px}
+  .hud{display:flex;gap:12px;align-items:center;margin-top:10px;justify-content:center}
+  button{background:#111827;color:var(--text);border:1px solid #ffffff22;padding:8px 12px;border-radius:8px;cursor:pointer}
+  .center{text-align:center}
+  #overlay{
+    position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(90deg, rgba(2,6,23,0.65), rgba(2,6,23,0.85));
+    z-index:20;
+  }
+  img{
+    width: 150px;
+    height: 150px;
+  }
+  .panel{background: linear-gradient(180deg,#0b1220,#08101a);padding:22px;border-radius:12px;max-width:560px;color:var(--text);box-shadow:0 12px 40px #0008}
+  h1{margin:0 0 8px;font-size:20px}
+  p{margin:8px 0 14px;line-height:1.3}
+  small{opacity:.85}
+  .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .controls{font-size:13px;opacity:.95}
+  .muted{opacity:.8;font-size:13px;margin-top:10px;text-align:center}
+</style>
+</head>
+<body>
+<div id="wrap" class="center">
+  <canvas id="game"></canvas>
+  <div class="hud">
+    <div>Lives: <span id="lives">1</span></div>
+    <div>Enemies: <span id="en_count">3</span></div>
+    <div>Goal: Find Paul</div>
+  </div>
+</div>
+
+
+<div id="overlay">
+  <div class="panel" id="panel">
+    
+    <img src="images/min.png" alt="">
+    <h1>Hey! it's Paul (my spirit)</h1>
+    <p>
+      Hey, this is Paul. My spirit is talking, I know it's confusing but let me explain.
+      Since you weren't even trying to meet me I tried black magic to convince you to make us meet, but while doing it I disturbed the spiritual realm
+      and a Keeper of that world abducted me and imprisoned me. My spirit escaped. I need your help, please come and find me.
+    </p>
+    <div class="row">
+      <button id="startBtn" disabled>Start Game (loading images...)</button>
+      <button id="howBtn">How to play</button>
+    </div>
+    <div id="how" style="display:none;margin-top:12px" class="controls">
+      <div>Use ← → ↑ ↓ or A D W S to move the heroine.</div>
+      <div>Kiss me, in the top-right corner to rescue me.</div>
+      <div>Avoid enemies (red). If they touch you it's game over.</div>
+      <div>The enemies patrol randomly and will chase if you're nearby.</div>
+    </div>
+    <div class="muted">Put <code>hero.png</code> and <code>paul.png</code> in the same folder as this HTML file.</div>
+  </div>
+</div>
+
+<script>
+
+
+const tile = 32;
+const map = [
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,1],
+  [1,0,1,1,1,0,1,0,1,1,1,1,0,1,0,1,1,1,0,1],
+  [1,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
+  [1,1,1,0,1,1,1,1,1,1,0,1,1,1,1,1,0,1,0,1],
+  [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+  [1,0,1,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1],
+  [1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,1],
+  [1,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],
+  [1,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
+  [1,0,1,1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,0,1],
+  [1,0,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1],
+  [1,1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,0,1,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+const rows = map.length;
+const cols = map[0].length;
+
+const canvas = document.getElementById('game');
+canvas.width = cols * tile;
+canvas.height = rows * tile;
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false; // keep pixel style
+
+
+const heroImg = new Image();
+heroImg.src = "images/batman-2.png";
+
+const paulImg = new Image();
+paulImg.src = "images/min.png";
+
+let imagesLoaded = 0;
+const totalImages = 2;
+
+function onImageLoad(){
+  imagesLoaded++;
+  if(imagesLoaded >= totalImages){
+    // enable Start button
+    const startBtn = document.getElementById('startBtn');
+    startBtn.disabled = false;
+    startBtn.textContent = 'Start Game';
+  }
+}
+function onImageError(name){
+  // If image fails to load, still allow user to start (but show console warning)
+  console.warn('Failed to load image:', name);
+  imagesLoaded++;
+  if(imagesLoaded >= totalImages){
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('startBtn').textContent = 'Start Game (some images missing)';
+  }
+}
+heroImg.onload = () => onImageLoad();
+paulImg.onload = () => onImageLoad();
+heroImg.onerror = () => onImageError('hero.png');
+paulImg.onerror = () => onImageError('paul.png');
+
+// ----- GAME OBJECTS -----
+
+let player = {
+  x: 2*tile + tile,
+  y: 11*tile + tile,
+  w: tile*0.7,
+  h: tile*0.7,
+  speed: 120, // px/s
+  vx:0, vy:0
+};
+
+// Enemies: 3 patrols
+const enemies = [
+  {cx:8, cy:1, dir:0, speed:80, tick:0},
+  {cx:16, cy:6, dir:1, speed:90, tick:0},
+  {cx:10, cy:10, dir:2, speed:85, tick:0},
+  {cx:4, cy:3, dir:3, speed:75, tick:0}
+];
+
+
+const paul = {cx: cols-2, cy:1}; // top-right-ish corner
+
+let lastTime = 0;
+let running = false;
+let gameState = 'intro'; // intro, play, win, lose
+let keys = {};
+
+const livesEl = document.getElementById('lives');
+const enCountEl = document.getElementById('en_count');
+enCountEl.textContent = enemies.length;
+
+// ----- MAP / COLLISIONS -----
+function tileAt(cx, cy){
+  if(cx<0||cy<0||cx>=cols||cy>=rows) return 1;
+  return map[cy][cx];
+}
+function collidesAt(x, y, w, h){
+  const points = [
+    {x:x-w/2, y:y-h/2},
+    {x:x+w/2, y:y-h/2},
+    {x:x-w/2, y:y+h/2},
+    {x:x+w/2, y:y+h/2}
+  ];
+  for(const p of points){
+    const cx = Math.floor(p.x / tile);
+    const cy = Math.floor(p.y / tile);
+    if(tileAt(cx,cy) === 1) return true;
+  }
+  return false;
+}
+
+// ----- RESET / START -----
+function reset(){
+  player.x = 2*tile + tile/2;
+  player.y = 11*tile + tile/2;
+  player.vx = player.vy = 0;
+  enemies[0].cx=8; enemies[0].cy=1;
+  enemies[1].cx=16; enemies[1].cy=6;
+  enemies[2].cx=10; enemies[2].cy=10;
+  enemies[3].cx=4; enemies[3].cy=3; 
+  enemies.forEach(e=>e.tick=0);
+  gameState='play';
+  running=true;
+}
+
+function startIntro(){
+  document.getElementById('overlay').style.display='flex';
+}
+document.getElementById('startBtn').addEventListener('click', ()=>{
+  // hide overlay and start game loop only if images attempted to load
+  document.getElementById('overlay').style.display='none';
+  reset();
+  lastTime = performance.now();
+  requestAnimationFrame(loop);
+});
+document.getElementById('howBtn').addEventListener('click', ()=>{
+  const h = document.getElementById('how');
+  h.style.display = h.style.display === 'none' ? 'block' : 'none';
+});
+
+// ----- INPUT -----
+window.addEventListener('keydown', e=>{
+  keys[e.key.toLowerCase()] = true;
+  if(["arrowup","arrowdown","arrowleft","arrowright"].includes(e.key.toLowerCase())){
+    e.preventDefault();
+  }
+});
+window.addEventListener('keyup', e=>{
+  keys[e.key.toLowerCase()] = false;
+});
+
+// ----- PLAYER MOVEMENT -----
+function updatePlayer(dt){
+  const left = keys['arrowleft'] || keys['a'];
+  const right = keys['arrowright'] || keys['d'];
+  const up = keys['arrowup'] || keys['w'];
+  const down = keys['arrowdown'] || keys['s'];
+
+  let vx = 0, vy = 0;
+  if(left) vx = -1;
+  if(right) vx = 1;
+  if(up) vy = -1;
+  if(down) vy = 1;
+  if(vx !== 0 && vy !== 0){ vx *= 0.7071; vy *= 0.7071; }
+  player.vx = vx * player.speed;
+  player.vy = vy * player.speed;
+
+  let nx = player.x + player.vx * dt;
+  let ny = player.y + player.vy * dt;
+
+  if(!collidesAt(nx, player.y, player.w, player.h)){
+    player.x = nx;
+  }
+  if(!collidesAt(player.x, ny, player.w, player.h)){
+    player.y = ny;
+  }
+}
+
+// ----- ENEMY AI -----
+function enemyAvailableDirs(ecx, ecy){
+  const out=[];
+  const dirs = [
+    {dx:1,dy:0, id:0},
+    {dx:-1,dy:0, id:1},
+    {dx:0,dy:1, id:2},
+    {dx:0,dy:-1, id:3}
+  ];
+  for(const d of dirs){
+    if(tileAt(ecx + d.dx, ecy + d.dy)===0) out.push(d);
+  }
+  return out;
+}
+
+function updateEnemies(dt){
+  for(const e of enemies){
+    e.tick += dt;
+    if(!e.move || e.reached){
+      e.reached = false;
+      const px = Math.floor(player.x / tile);
+      const py = Math.floor(player.y / tile);
+      const dist = Math.hypot(px - e.cx, py - e.cy);
+      let chosen = null;
+      const dirs = enemyAvailableDirs(e.cx, e.cy);
+
+      if(dist < 5){
+        let best=null, bestDist=1e9;
+        for(const d of dirs){
+          const nx = e.cx + d.dx, ny = e.cy + d.dy;
+          const d2 = Math.hypot(px-nx, py-ny);
+          if(d2 < bestDist){ bestDist=d2; best=d; }
+        }
+        if(best) chosen = best;
+      }
+      if(!chosen){
+        if(dirs.length>0){
+          chosen = dirs[Math.floor(Math.random()*dirs.length)];
+        }
+      }
+      if(chosen){
+        e.move = {dx:chosen.dx, dy:chosen.dy};
+        e.targetX = (e.cx + chosen.dx) * tile + tile/2;
+        e.targetY = (e.cy + chosen.dy) * tile + tile/2;
+        e.moveProgress = 0;
+      }
+    }
+
+    if(e.move){
+      const speed = e.speed;
+      const curx = e.cx*tile + tile/2;
+      const cury = e.cy*tile + tile/2;
+      const tx = e.targetX, ty = e.targetY;
+      const step = speed * dt;
+      if(Math.abs(tx - curx) <= step && Math.abs(ty - cury) <= step){
+        e.cx = (tx - tile/2)/tile;
+        e.cy = (ty - tile/2)/tile;
+        e.move = null;
+        e.reached = true;
+      } else {
+        e.moveProgress = (e.moveProgress || 0) + step;
+        if(e.moveProgress >= tile - 1){
+          e.cx = (tx - tile/2)/tile;
+          e.cy = (ty - tile/2)/tile;
+          e.move = null;
+          e.reached = true;
+        }
+      }
+    }
+  }
+}
+
+// ----- DRAW -----
+function draw(){
+  // map
+  for(let y=0;y<rows;y++){
+    for(let x=0;x<cols;x++){
+      if(map[y][x]===1){
+        ctx.fillStyle = 'rgb(30,41,59)';
+        ctx.fillRect(x*tile, y*tile, tile, tile);
+        ctx.fillStyle = 'rgba(0,0,0,0.12)';
+        ctx.fillRect(x*tile+2, y*tile+2, tile-4, tile-4);
+      } else {
+        ctx.fillStyle = 'rgba(5,10,18,1)';
+        ctx.fillRect(x*tile, y*tile, tile, tile);
+      }
+    }
+  }
+
+  if(paulImg.complete && paulImg.naturalWidth !== 0){
+    const px = paul.cx * tile + tile/2 - tile*0.5;
+    const py = paul.cy * tile + tile/2 - tile*0.5;
+    ctx.drawImage(paulImg, px, py, tile, tile);
+    // halo
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(96,165,250,0.25)';
+    ctx.lineWidth = 4;
+    ctx.arc(paul.cx*tile + tile/2, paul.cy*tile + tile/2, tile*0.45, 0, Math.PI*2);
+    ctx.stroke();
+  } else {
+    
+    ctx.fillStyle = 'rgb(96,165,250)';
+    ctx.beginPath();
+    ctx.arc(paul.cx*tile + tile/2, paul.cy*tile + tile/2, tile*0.35, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // enemies
+  for(const e of enemies){
+    let px = e.cx*tile + tile/2;
+    let py = e.cy*tile + tile/2;
+    if(e.move){
+      const progress = Math.min(1, (e.moveProgress || 0) / tile);
+      px = (e.cx * (1-progress) + (e.cx + e.move.dx) * progress) * tile + tile/2;
+      py = (e.cy * (1-progress) + (e.cy + e.move.dy) * progress) * tile + tile/2;
+    }
+    ctx.fillStyle = 'rgb(239,68,68)';
+    ctx.beginPath();
+    ctx.arc(px, py, tile*0.33, 0, Math.PI*2);
+    ctx.fill();
+    // eyes
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(px-6, py-4, 4, 6);
+    ctx.fillRect(px+2, py-4, 4, 6);
+  }
+
+  // player (hero) as image
+  if(heroImg.complete && heroImg.naturalWidth !== 0){
+    ctx.drawImage(heroImg, player.x - player.w/2, player.y - player.h/2, player.w, player.h);
+  } else {
+    // fallback rectangle if image missing
+    ctx.fillStyle = 'rgb(245,158,11)';
+    ctx.fillRect(player.x - player.w/2, player.y - player.h/2, player.w, player.h);
+  }
+
+  // small soul indicator
+  ctx.beginPath();
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.arc(player.x - player.w*0.6, player.y - player.h, 6, 0, Math.PI*2);
+  ctx.fill();
+}
+
+// ----- COLLISIONS & GAME OVER / WIN -----
+function checkCollisions(){
+  const px = Math.floor(player.x / tile), py = Math.floor(player.y / tile);
+  if(px === paul.cx && py === paul.cy){
+    gameState = 'win';
+    running = false;
+    showEnd(true);
+    return;
+  }
+  for(const e of enemies){
+    let ex = e.cx*tile + tile/2, ey = e.cy*tile + tile/2;
+    if(e.move){
+      const progress = Math.min(1, (e.moveProgress || 0) / tile);
+      ex = (e.cx * (1-progress) + (e.cx + e.move.dx) * progress) * tile + tile/2;
+      ey = (e.cy * (1-progress) + (e.cy + e.move.dy) * progress) * tile + tile/2;
+    }
+    const d = Math.hypot(player.x - ex, player.y - ey);
+    if(d < tile*0.6){
+      gameState='lose';
+      running = false;
+      showEnd(false);
+      return;
+    }
+  }
+}
+
+function showEnd(win){
+  document.getElementById('overlay').style.display='flex';
+  const panel = document.getElementById('panel');
+  if(win){
+    panel.innerHTML = `<h1><img src="images/batman-2.png" alt="">
+      You rescued me!</h1>
+      <p>Paul: "I knew ittt... Thank u my Batwoman. But I wouldn't have been caught in this stupid realm if you had freqeuntly met me. Hope u learn from yur mistakes. Love u diii."</p>
+      <div class="row"><button id="replay">Play again</button></div>`;
+  } else {
+    panel.innerHTML = `<img src="images/min.png" alt="">
+    <h1>Captured!</h1>
+      <p>Paul's spirit: "Nooo diii! The enemies got you. Be careful next time"</p>
+      <div class="row"><button id="replay">Try again</button></div>`;
+  }
+  document.getElementById('overlay').style.display='flex';
+  document.getElementById('replay').addEventListener('click', ()=>{
+    panel.innerHTML = ` <img src="images/min.png" alt="">
+    <h1>Hey it's Paul (my spirit)</h1>
+    <p>Hey, this is Paul. My spirit is talking. I know it's confusing but let me explain.
+    Since you weren't even trying to meet me I tried black magic to convince you, but while doing it I disturbed the spiritual realm
+    and the Keeper abducted me and imprisoned me. My spirit escaped. I need your help — please come and find me.</p>
+    <div class="row"><button id="startBtn">Start Game</button><button id="howBtn">How to play</button></div>
+    <div id="how" style="display:none;margin-top:12px" class="controls">
+      <div>Use ← → ↑ ↓ or A D W S to move the heroine.</div>
+      <div>Touch Paul (blue) in the top-right corner to rescue me.</div>
+      <div>Avoid enemies (red). If they touch you it's game over.</div>
+    </div>`;
+    document.getElementById('howBtn').addEventListener('click', ()=>{
+      const h = document.getElementById('how');
+      h.style.display = h.style.display === 'none' ? 'block' : 'none';
+    });
+    document.getElementById('startBtn').addEventListener('click', ()=>{
+      document.getElementById('overlay').style.display='none';
+      reset();
+      lastTime = performance.now();
+      requestAnimationFrame(loop);
+    });
+  });
+}
+
+// ----- MAIN LOOP -----
+function loop(ts){
+  const dt = Math.min(0.05, (ts - lastTime)/1000);
+  lastTime = ts;
+  if(running && gameState === 'play'){
+    updatePlayer(dt);
+    updateEnemies(dt);
+    checkCollisions();
+  }
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  draw();
+  if(running || gameState==='play'){
+    requestAnimationFrame(loop);
+  }
+}
+
+// show intro
+startIntro();
+
+</script>
+</body>
+</html>
