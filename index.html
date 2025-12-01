@@ -156,7 +156,8 @@ const enemies = [
   {cx:8, cy:1, dir:0, speed:80, tick:0},
   {cx:16, cy:6, dir:1, speed:90, tick:0},
   {cx:10, cy:10, dir:2, speed:85, tick:0},
-  {cx:4, cy:3, dir:3, speed:75, tick:0} 
+  {cx:4, cy:3, dir:3, speed:75, tick:0},
+  {cx:3, cy:3, dir:2, speed:95, tick:0} 
 ];
 
 
@@ -200,6 +201,7 @@ function reset(){
   enemies[1].cx=16; enemies[1].cy=6;
   enemies[2].cx=10; enemies[2].cy=10;
   enemies[3].cx=4; enemies[3].cy=3; 
+  enemies[4].cx=2; enemies[4].cy=3; 
   enemies.forEach(e=>e.tick=0);
   gameState='play';
   running=true;
@@ -266,6 +268,7 @@ function enemyAvailableDirs(ecx, ecy){
     {dx:-1,dy:0, id:1},
     {dx:0,dy:1, id:2},
     {dx:0,dy:-1, id:3}
+    {dx:3,dy:-1, id:4}
   ];
   for(const d of dirs){
     if(tileAt(ecx + d.dx, ecy + d.dy)===0) out.push(d);
@@ -488,4 +491,5 @@ startIntro();
 </script>
 </body>
 </html>
+
 
